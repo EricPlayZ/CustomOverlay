@@ -16,15 +16,16 @@ void CustomOverlay::onLoad()
 		gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 		gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 		gameWrapper->HookEvent("Function TAGame.Ball_TA.EventExploded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
+		gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.AddPlayerToTeam", bind(&CustomOverlay::OnGameLoad, this, std::placeholders::_1));
 		gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 
 		hooked = true;
 	}
 
-	disablePsyUI(false);
+	DisablePsyUI(false);
 }
 
-void CustomOverlay::disablePsyUI(bool disabled)
+void CustomOverlay::DisablePsyUI(bool disabled)
 {
 	if (cvarManager->getCvar("cl_rendering_scaleform_disabled").getIntValue() != disabled)
 		cvarManager->getCvar("cl_rendering_scaleform_disabled").setValue(disabled);
@@ -32,63 +33,116 @@ void CustomOverlay::disablePsyUI(bool disabled)
 
 int CustomOverlay::getBoostAmount()
 {
-	if (!gameWrapper->IsInOnlineGame())
-	{
-		if (!gameWrapper->IsInGame())
-			return 0;
-		else if (gameWrapper->GetLocalCar().IsNull())
-			return 0;
-	}
-	else if (gameWrapper->GetLocalCar().IsNull())
-		return 0;
+	CarWrapper localCar = gameWrapper->GetLocalCar();
 
-	return gameWrapper->GetLocalCar().GetBoostComponent().GetCurrentBoostAmount() * 100;
+	if (localCar.IsNull())
+		return -1;
+	else
+	{
+		BoostWrapper boostComponent = localCar.GetBoostComponent();
+
+		if (boostComponent.IsNull())
+			return -1;
+		else
+			return boostComponent.GetCurrentBoostAmount() * 100;
+	}
 }
 
 int CustomOverlay::getGameTime()
 {
-	if (gameWrapper->IsInGame())
-		return gameWrapper->GetGameEventAsServer().GetGameTimeRemaining();
-	else if (gameWrapper->IsInOnlineGame())
-		return gameWrapper->GetOnlineGame().GetGameTimeRemaining();
+	ServerWrapper localServer = gameWrapper->GetGameEventAsServer();
+	ServerWrapper onlineServer = gameWrapper->GetOnlineGame();
+
+	if (!gameWrapper->IsInGame())
+	{
+		if (!gameWrapper->IsInOnlineGame())
+			return -1;
+		else if (onlineServer.IsNull())
+			return -1;
+		else
+			return onlineServer.GetSecondsRemaining();
+	}
+	else if (localServer.IsNull())
+		return -1;
+	else
+		return localServer.GetSecondsRemaining();
 }
 
 TeamWrapper CustomOverlay::getMyTeam()
 {
-	if (gameWrapper->IsInGame())
+	ServerWrapper localServer = gameWrapper->GetGameEventAsServer();
+	ServerWrapper onlineServer = gameWrapper->GetOnlineGame();
+
+	if (gameWrapper->IsInGame() && !localServer.IsNull())
 	{
-		for (TeamWrapper team : gameWrapper->GetGameEventAsServer().GetTeams())
-			if (gameWrapper->GetGameEventAsServer().GetLocalPrimaryPlayer().GetTeamNum2() == team.GetTeamNum2())
-				return team;
+		ArrayWrapper<TeamWrapper> localServerTeams = localServer.GetTeams();
+		PlayerControllerWrapper localServerLocalPrimaryPlayer = localServer.GetLocalPrimaryPlayer();
+
+		if (!localServerTeams.IsNull() && !localServerLocalPrimaryPlayer.IsNull())
+			for (TeamWrapper team : localServerTeams)
+				if (localServerLocalPrimaryPlayer.GetTeamNum2() == team.GetTeamNum2())
+					return team;
 	}
-	else if (gameWrapper->IsInOnlineGame())
+	else if (gameWrapper->IsInOnlineGame() && !onlineServer.IsNull())
 	{
-		for (TeamWrapper team : gameWrapper->GetOnlineGame().GetTeams())
-			if (gameWrapper->GetOnlineGame().GetLocalPrimaryPlayer().GetTeamNum2() == team.GetTeamNum2())
-				return team;
+		ArrayWrapper<TeamWrapper> onlineServerTeams = onlineServer.GetTeams();
+		PlayerControllerWrapper onlineServerLocalPrimaryPlayer = onlineServer.GetLocalPrimaryPlayer();
+
+		if (!onlineServerTeams.IsNull() && !onlineServerLocalPrimaryPlayer.IsNull())
+			for (TeamWrapper team : onlineServerTeams)
+				if (onlineServerLocalPrimaryPlayer.GetTeamNum2() == team.GetTeamNum2())
+					return team;
 	}
 }
 
 TeamWrapper CustomOverlay::getOpposingTeam()
 {
-	if (gameWrapper->IsInGame())
+	ServerWrapper localServer = gameWrapper->GetGameEventAsServer();
+	ServerWrapper onlineServer = gameWrapper->GetOnlineGame();
+
+	if (gameWrapper->IsInGame() && !localServer.IsNull())
 	{
-		for (TeamWrapper team : gameWrapper->GetGameEventAsServer().GetTeams())
-			if (gameWrapper->GetGameEventAsServer().GetLocalPrimaryPlayer().GetTeamNum2() != team.GetTeamNum2())
-				return team;
+		ArrayWrapper<TeamWrapper> localServerTeams = localServer.GetTeams();
+		PlayerControllerWrapper localServerLocalPrimaryPlayer = localServer.GetLocalPrimaryPlayer();
+
+		if (!localServerTeams.IsNull() && !localServerLocalPrimaryPlayer.IsNull())
+			for (TeamWrapper team : localServerTeams)
+				if (localServerLocalPrimaryPlayer.GetTeamNum2() != team.GetTeamNum2())
+					return team;
 	}
-	else if (gameWrapper->IsInOnlineGame())
+	else if (gameWrapper->IsInOnlineGame() && !onlineServer.IsNull())
 	{
-		for (TeamWrapper team : gameWrapper->GetOnlineGame().GetTeams())
-			if (gameWrapper->GetOnlineGame().GetLocalPrimaryPlayer().GetTeamNum2() != team.GetTeamNum2())
-				return team;
+		ArrayWrapper<TeamWrapper> onlineServerTeams = onlineServer.GetTeams();
+		PlayerControllerWrapper onlineServerLocalPrimaryPlayer = onlineServer.GetLocalPrimaryPlayer();
+
+		if (!onlineServerTeams.IsNull() && !onlineServerLocalPrimaryPlayer.IsNull())
+			for (TeamWrapper team : onlineServerTeams)
+				if (onlineServerLocalPrimaryPlayer.GetTeamNum2() != team.GetTeamNum2())
+					return team;
 	}
 }
 
-UnrealColor CustomOverlay::getTeamColor(TeamWrapper team)
+LinearColor CustomOverlay::getTeamColor(TeamWrapper team)
 {
 	if (!team.IsNull())
-		return team.GetTeamColor();
+	{
+		StructArrayWrapper<LinearColor> currentColorList = team.GetCurrentColorList();
+
+		return currentColorList.Get(0);
+	}
+}
+
+void CustomOverlay::UpdateVars()
+{
+	if (!*overlayOn)
+		return;
+
+	boost = getBoostAmount();
+
+	gameTime = (getGameTime() != -1) ? (std::to_string(getGameTime() / 60) + ":" + lead_zeros(getGameTime() % 60, 2)) : std::to_string(-1);
+
+	myTeamColor = getTeamColor(getMyTeam());
+	opposingTeamColor = getTeamColor(getOpposingTeam());
 }
 
 void CustomOverlay::OnGameLoad(std::string eventName)
@@ -103,7 +157,7 @@ void CustomOverlay::OnGameLoad(std::string eventName)
 			loaded = true;
 		}
 
-		disablePsyUI(true);
+		DisablePsyUI(true);
 	}
 }
 
@@ -116,7 +170,7 @@ void CustomOverlay::OnGameDestroy(std::string eventName)
 		loaded = false;
 	}
 
-	disablePsyUI(false);
+	DisablePsyUI(false);
 }
 
 void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
@@ -129,6 +183,7 @@ void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
 			gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 			gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 			gameWrapper->HookEvent("Function TAGame.Ball_TA.EventExploded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
+			gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.AddPlayerToTeam", bind(&CustomOverlay::OnGameLoad, this, std::placeholders::_1));
 			gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 
 			hooked = true;
@@ -144,6 +199,7 @@ void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
 			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");
 			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed");
 			gameWrapper->UnhookEvent("Function TAGame.Ball_TA.EventExploded");
+			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Team_TA.AddPlayerToTeam");
 			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam");
 
 			hooked = false;
@@ -161,13 +217,8 @@ void CustomOverlay::Render(CanvasWrapper canvas)
 	if (!gameWrapper->IsInOnlineGame())
 		if (!gameWrapper->IsInGame())
 			return;
-		
-	boost = getBoostAmount();
 
-	gameTime = std::to_string(getGameTime() / 60) + ":" + lead_zeros(getGameTime() % 60, 2);
-
-	myTeamColor = getTeamColor(getMyTeam());
-	opposingTeamColor = getTeamColor(getOpposingTeam());
+	UpdateVars();
 
 	screenSize = canvas.GetSize();
 
@@ -219,7 +270,7 @@ void CustomOverlay::Render(CanvasWrapper canvas)
 	scoreBoxLeftTextPosition.Y = (scoreBoxLeftSize.Y / 2) - (scoreBoxLeftTextSize.Y / 2);
 
 	canvas.SetPosition(scoreBoxLeftPosition);
-	canvas.SetColor(myTeamColor.R, myTeamColor.G, myTeamColor.B, 200);
+	canvas.SetColor(myTeamColor.R * 255, myTeamColor.G * 255, myTeamColor.B * 255, 200);
 	canvas.FillBox(scoreBoxLeftSize);
 	canvas.SetPosition(scoreBoxLeftTextPosition);
 	canvas.SetColor(255, 252, 250, 255);
@@ -232,7 +283,7 @@ void CustomOverlay::Render(CanvasWrapper canvas)
 	scoreBoxRightTextPosition.Y = (scoreBoxLeftSize.Y / 2) - (scoreBoxRightTextSize.Y / 2);
 
 	canvas.SetPosition(scoreBoxRightPosition);
-	canvas.SetColor(opposingTeamColor.R, opposingTeamColor.G, opposingTeamColor.B, 200);
+	canvas.SetColor(opposingTeamColor.R * 255, opposingTeamColor.G * 255, opposingTeamColor.B * 255, 200);
 	canvas.FillBox(scoreBoxLeftSize);
 	canvas.SetPosition(scoreBoxRightTextPosition);
 	canvas.SetColor(255, 252, 250, 255);

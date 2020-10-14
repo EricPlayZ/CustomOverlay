@@ -1,5 +1,5 @@
 #pragma once
-#pragma comment( lib, "bakkesmod.lib" )
+#pragma comment( lib, "pluginsdk.lib" )
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 
 class CustomOverlay : public BakkesMod::Plugin::BakkesModPlugin
@@ -8,15 +8,16 @@ public:
 	virtual void onLoad();
 	virtual void onUnload();
 	
-	void disablePsyUI(bool disabled);
+	void DisablePsyUI(bool disabled);
 
 	int getBoostAmount();
 	int getGameTime();
 
 	TeamWrapper getMyTeam();
 	TeamWrapper getOpposingTeam();
-	UnrealColor getTeamColor(TeamWrapper team);
+	LinearColor getTeamColor(TeamWrapper team);
 
+	void UpdateVars();
 	void OnGameLoad(std::string eventName);
 	void OnGameDestroy(std::string eventName);
 	void OnOverlayChanged(std::string oldValue, CVarWrapper cvar);
@@ -30,8 +31,8 @@ private:
 
 	std::string gameTime;
 
-	UnrealColor myTeamColor;
-	UnrealColor opposingTeamColor;
+	LinearColor myTeamColor;
+	LinearColor opposingTeamColor;
 
 	Vector2 screenSize;
 
