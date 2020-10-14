@@ -160,8 +160,9 @@ void CustomOverlay::UpdateVars()
 
 void CustomOverlay::OnGameLoad(std::string eventName)
 {
-	if (!gameWrapper->IsInOnlineGame() || !gameWrapper->IsInGame())
-		return;
+	if (!gameWrapper->IsInGame())
+		if (!gameWrapper->IsInOnlineGame())
+			return;
 
 	if (!loaded)
 	{
