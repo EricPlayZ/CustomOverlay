@@ -8,6 +8,9 @@ public:
 	virtual void onLoad();
 	virtual void onUnload();
 	
+	void HookAllEvents();
+	void UnhookAllEvents();
+
 	void DisablePsyUI(bool disabled);
 
 	int getBoostAmount();
