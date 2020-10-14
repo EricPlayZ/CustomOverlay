@@ -1,5 +1,5 @@
 # Custom Overlay 2.0
-A BakkesMod plugin which uses a custom overlay in-game to improve FPS.
+A BakkesMod plugin which uses a custom overlay in-game to improve FPS. [Plugin Homepage](https://bakkesplugins.com/plugins/view/152)
 
 Since this plugin was already made by JerryTheBee ([his plugin page](https://bakkesplugins.com/plugins/view/148) if you wanna check it out), I've named this 2.0 because, you could say, this is a remastered version of his plugin.
 
