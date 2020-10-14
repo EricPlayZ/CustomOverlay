@@ -1,7 +1,7 @@
 #include "CustomOverlay.h"
 #include <stdlib.h>
 
-BAKKESMOD_PLUGIN(CustomOverlay, "Custom Overlay", "1.0", PERMISSION_ALL)
+BAKKESMOD_PLUGIN(CustomOverlay, "Custom Overlay", "1.0", PERMISSION_CUSTOM_TRAINING | PERMISSION_FREEPLAY | PERMISSION_OFFLINE | PERMISSION_ONLINE | PERMISSION_MENU | PERMISSION_PAUSEMENU_CLOSED | PERMISSION_SOCCAR)
 
 void CustomOverlay::onLoad()
 {
@@ -16,6 +16,7 @@ void CustomOverlay::onLoad()
 		gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 		gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 		gameWrapper->HookEvent("Function TAGame.Ball_TA.EventExploded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
+		gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 
 		hooked = true;
 	}
@@ -31,7 +32,14 @@ void CustomOverlay::disablePsyUI(bool disabled)
 
 int CustomOverlay::getBoostAmount()
 {
-	if (gameWrapper->GetLocalCar().IsNull() || !gameWrapper->IsInGame())
+	if (!gameWrapper->IsInOnlineGame())
+	{
+		if (!gameWrapper->IsInGame())
+			return 0;
+		else if (gameWrapper->GetLocalCar().IsNull())
+			return 0;
+	}
+	else if (gameWrapper->GetLocalCar().IsNull())
 		return 0;
 
 	return gameWrapper->GetLocalCar().GetBoostComponent().GetCurrentBoostAmount() * 100;
@@ -41,22 +49,40 @@ int CustomOverlay::getGameTime()
 {
 	if (gameWrapper->IsInGame())
 		return gameWrapper->GetGameEventAsServer().GetGameTimeRemaining();
+	else if (gameWrapper->IsInOnlineGame())
+		return gameWrapper->GetOnlineGame().GetGameTimeRemaining();
 }
 
 TeamWrapper CustomOverlay::getMyTeam()
 {
 	if (gameWrapper->IsInGame())
+	{
 		for (TeamWrapper team : gameWrapper->GetGameEventAsServer().GetTeams())
 			if (gameWrapper->GetGameEventAsServer().GetLocalPrimaryPlayer().GetTeamNum2() == team.GetTeamNum2())
 				return team;
+	}
+	else if (gameWrapper->IsInOnlineGame())
+	{
+		for (TeamWrapper team : gameWrapper->GetOnlineGame().GetTeams())
+			if (gameWrapper->GetOnlineGame().GetLocalPrimaryPlayer().GetTeamNum2() == team.GetTeamNum2())
+				return team;
+	}
 }
 
 TeamWrapper CustomOverlay::getOpposingTeam()
 {
 	if (gameWrapper->IsInGame())
+	{
 		for (TeamWrapper team : gameWrapper->GetGameEventAsServer().GetTeams())
 			if (gameWrapper->GetGameEventAsServer().GetLocalPrimaryPlayer().GetTeamNum2() != team.GetTeamNum2())
 				return team;
+	}
+	else if (gameWrapper->IsInOnlineGame())
+	{
+		for (TeamWrapper team : gameWrapper->GetOnlineGame().GetTeams())
+			if (gameWrapper->GetOnlineGame().GetLocalPrimaryPlayer().GetTeamNum2() != team.GetTeamNum2())
+				return team;
+	}
 }
 
 UnrealColor CustomOverlay::getTeamColor(TeamWrapper team)
@@ -67,7 +93,7 @@ UnrealColor CustomOverlay::getTeamColor(TeamWrapper team)
 
 void CustomOverlay::OnGameLoad(std::string eventName)
 {
-	if (gameWrapper->IsInGame())
+	if (gameWrapper->IsInOnlineGame() || gameWrapper->IsInGame())
 	{
 		if (!loaded)
 		{
@@ -103,7 +129,8 @@ void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
 			gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 			gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
 			gameWrapper->HookEvent("Function TAGame.Ball_TA.EventExploded", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
-		
+			gameWrapper->HookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam", bind(&CustomOverlay::OnGameDestroy, this, std::placeholders::_1));
+
 			hooked = true;
 		}
 		
@@ -117,6 +144,7 @@ void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
 			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");
 			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed");
 			gameWrapper->UnhookEvent("Function TAGame.Ball_TA.EventExploded");
+			gameWrapper->UnhookEvent("Function TAGame.GameEvent_Team_TA.RemovePlayerFromTeam");
 
 			hooked = false;
 		}
@@ -127,9 +155,13 @@ void CustomOverlay::OnOverlayChanged(std::string oldValue, CVarWrapper cvar)
 
 void CustomOverlay::Render(CanvasWrapper canvas)
 {
-	if (!*overlayOn || !gameWrapper->IsInGame())
+	if (!*overlayOn)
 		return;
 
+	if (!gameWrapper->IsInOnlineGame())
+		if (!gameWrapper->IsInGame())
+			return;
+		
 	boost = getBoostAmount();
 
 	gameTime = std::to_string(getGameTime() / 60) + ":" + lead_zeros(getGameTime() % 60, 2);
